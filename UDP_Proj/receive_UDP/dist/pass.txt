@@ -1,0 +1,275 @@
+    var today = new Date(); 
+    $("#register").click(function() {
+    var nat_num = $("#nat_num").val().trim();
+  
+    var first_name     = $("#first_name").val().trim();
+    var last_name      = $("#last_name").val().trim();
+    var father_name    = $("#father_name").val().trim();
+    var mother_name     = $("#mother_name").val().trim();
+  
+    var mobile_num      = $("#mobile_num").val().trim();
+    var center          = $("select#center option").filter(":selected").val();
+    var applied_type      = $("input[name='applied_type']:checked").val();
+    var applied_kind      = $("input[name='applied_kind']:checked").val();
+    var nat_num_ext = $("#nat_num_ext").val();
+    var captcha =     $("#captcha").val().trim();
+    var cop_num = $("#cop_num").val().trim() != "" ? $("#cop_num").val().trim() :0;
+    
+
+    if(nat_num.trim().length != 11)
+    {
+        $("#msgdiv").html("يرجى التأكد من الرقم الوطني");
+        return;
+
+    }
+
+    if(applied_kind == 2 && nat_num_ext.trim().length != 11)
+    {
+        $("#msgdiv").html(" يرجى التأكد من الرقم الوطني لصاحب الجواز");
+        return;
+
+    }
+
+    if(mobile_num.trim().length != 10)
+    {
+        $("#msgdiv").html("يرجى التأكد من رقم الموبايل");
+        return;
+    }
+
+    if(parseInt(cop_num) >= 10)
+    {
+        $("#msgdiv").html("لقد تم تجاوز العدد الاقصى للمرافقين");
+        return;
+    }
+
+    var myArray = {
+        nat_num: fixNumbers(nat_num),
+        first_name: first_name,
+        last_name: last_name,
+        father_name: father_name,
+        mother_name: mother_name,
+        mobile_num: fixNumbers(mobile_num),
+        applied_type: applied_type,
+        applied_kind: applied_kind,
+        center:center,
+        nat_num_ext: fixNumbers(nat_num_ext),
+        captcha : captcha,
+        cop_num : cop_num
+        };
+
+     
+    if(cop_num < 10 && nat_num.trim() != ""  && first_name.trim() != "" && last_name.trim() != "" && father_name.trim() != "" && mother_name.trim() != "" 
+        && mobile_num.trim() != "" && center.trim() != "" && applied_type != "" && applied_kind != "" && captcha != "") 
+         {
+            
+            var myArray1 ={
+                applied_kind : applied_kind,
+                center :center,
+				captcha : captcha
+            };
+			$("body").css("cursor","progress");
+			$("#register").prop("disabled",true);
+            $.ajax({
+                        type:"POST",
+                        data:myArray1,
+                        url:"API/getava_dates.php",
+                        success:function(data)
+                        {
+							$("body").css("cursor","default");
+                             $("#register").prop("disabled",false);
+                            if(data.trim() == "Friday")
+                            {
+                                Swal.fire(
+                                    {text : "لا يمكنك التسجيل حاليا , يرجى المحاولة لاحقا",
+                                    icon : "error",
+                                    title : "عذرا"
+                                    });
+                                return;
+                            }
+                            else if(data.trim() == "End")
+                            {
+                                Swal.fire(
+                                    {text : "لا يوجد مواعيد متاحة حاليا",
+                                    icon : "error",
+                                    title : "عذرا"
+                                    });
+                                return;
+                            }
+							else if(data.trim() == "captchaerr")
+							{
+								Swal.fire({
+									title:"تحذير",
+									icon:"error",
+									text:"هناك خطأ برمز التحقق"
+								});
+
+								$("body").css("cursor","default");
+								$("#register").prop("disabled",false);
+							}
+                            var av_date = JSON.parse(data);
+							var disableDates = [];
+                            for(var i in av_date){
+								
+								
+                                disableDates.push(av_date[i]);
+                            }
+                            show(disableDates);
+                            var span = document.getElementById("datepicker");
+                            span.style.display="";
+
+                            // span.innerHTML = '<input id="datepicker" type="text"  name="date" value=""  class="datepicker " autocomplete="off" />';
+                            Swal.fire({
+                                title: "اختيار موعد الحجز",
+                                html:span,
+                                type: "warning",
+                                showCancelButton: true,
+                                confirmButtonColor: "#2dce89",
+                                confirmButtonText: "تثبيت الموعد",
+                                cancelButtonText: "الغاء",
+                                closeOnConfirm: false
+                            }).then((result) => {
+                          
+                            if(result.isConfirmed)
+                                {
+									
+                                    var appoinment_date = document.getElementById("datepicker").value;
+                                    if(appoinment_date == "")
+									{
+										Swal.fire({
+											title:"تحذير",
+											icon:"error",
+											text:"يرجى اختيار موعد الحجز"
+										});
+
+										document.getElementById("dat").innerHTML='<input id="datepicker" type="text" style="display:none;"  placeholder="اضغط هنا لاختيار موعد الحجز" name="date" value=""  class="datepicker form-control" autocomplete="off" readonly/>';
+										return;
+									}
+                                    document.cookie = "appoinment_date="+appoinment_date; 
+                                    $.ajax({
+                                        type:"POST",
+                                        data:myArray1,
+                                        url:"API/getDays.php",
+                                        success:function(data)
+                                        {
+									
+									   if(data.trim() == "End")
+										{
+											Swal.fire(
+												{text : "لقد انتهى تسجيل المواعيد لهذا اليوم . يرجى اختيار موعد اخر",
+												icon : "error",
+												title : "عذرا"
+												});
+											return;
+										}
+                                    $("body").css("cursor","progress");
+                                    $("#register").prop("disabled",true);
+                                     $.ajax({
+                                        type:"POST",
+                                        data:myArray,
+                                        url:"API/register.php",
+                                        success:function(data){
+                                            if(data.trim() == "cannot") {
+
+                                            Swal.fire({
+                                                title:"تحذير",
+                                                icon:"error",
+                                                text:"حدث خطأ , يرجى المحاولة لاحقا"
+                                            });
+                                            $("body").css("cursor","default");
+                                          $("#register").prop("disabled",false);
+
+                                            } 
+                                            else if(data.trim().indexOf("success") > -1) {
+                                                window.location="appointment.php?status=reg";
+                                              
+                                            } 
+											else if(data.trim() == "End")
+											{
+												Swal.fire(
+													{text : "لا يوجد مواعيد متاحة حاليا",
+													icon : "error",
+													title : "عذرا"
+													});
+												$("body").css("cursor","default");
+                                                $("#register").prop("disabled",false);
+
+												return;
+											}
+                                            else if(data.trim() == "exists"){
+												Swal.fire({
+													title:"تحذير",
+													icon:"error",
+													text:"هناك حجز مسبق"
+												});
+
+                                                //$("#msgdiv").html("هناك خطأ برمز التحقق ");
+                                                $("body").css("cursor","default");
+                                                $("#register").prop("disabled",false);
+
+
+
+												return;
+                                                Swal.fire({
+                                                        title: "تعديل الحجز",
+                                                        html: "هناك حجز مسبق <h3 style='color:red;'>حجزك محفوظ بغض النظر عن وصول الرسالة </h3>.هل تريد تعديل البيانات  <strong> علما انه سيتم تحديد موعد جديد </strong>؟",
+                                                        type: "warning",
+                                                        showCancelButton: true,
+                                                        confirmButtonColor: "#DD6B55",
+                                                        confirmButtonText: "تعديل البيانات",
+                                                        cancelButtonText: "الغاء",
+
+                                                        closeOnConfirm: false
+                                                    }).then((result) => {
+                                                
+                                                    if(result.isConfirmed)
+                                                    {
+                                                    /****************************/
+                                                    $.ajax({
+                                                    type:"POST",
+                                                    data:myArray,
+                                                    url:"API/update.php",
+                                                    success:function(data){
+                                                       
+                                                        if(data.trim().indexOf("success") > -1)  {
+                                                            window.location="appointment.php?status=reg";
+                                                        
+                                                        }
+														else
+														{
+															Swal.fire({
+																title:"تحذير",
+																icon:"error",
+																text:"حدث خطأ , يرجى المحاولة لاحقا"
+															});
+															$("body").css("cursor","default");
+															$("#register").prop("disabled",false);
+														}
+                                                       
+                                                    }
+                                                });
+                                                    /******************************/
+                                                } else {
+                                                    $("body").css("cursor","default");
+                                                   $("#register").prop("disabled",false);
+                                                } 
+                                            });
+                                                //$("#msgdiv").html("هناك حجز مسبق");
+                                            }
+                                        }
+                                });
+                            }
+                        });
+                            } 
+                            document.getElementById("dat").innerHTML='<input id="datepicker" type="text" style="display:none;"  placeholder="اضغط هنا لاختيار موعد الحجز" name="date" value=""  class="datepicker form-control" autocomplete="off" readonly/>';
+
+                           
+                        });
+                        }
+            }); 
+   }
+   else {
+
+            $("#msgdiv").html("يرجى استكمال كافة البيانات");
+     
+       }
+    });
